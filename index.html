@@ -105,7 +105,7 @@
     };
 
     // ここに追加
-　　let botStreak = 0; // 連続AIメッセージ数
+    let botStreak = 0; // 連続AIメッセージ数
 
     Object.assign(state.answers, loadAnswers());
 
@@ -130,14 +130,14 @@
     ? `<img src="https://github.com/kuromitsusokujitsu-wq/staticsite/blob/main/aiicon.png?raw=true"
              alt="サポートAI"
              class="w-12 h-12 rounded-full object-cover border border-gray-300 mt-0.5">`
-    : `<div class="w-12"></div>`; // 揃えるための空スペーサー
+    : `<div class="w-12 flex-shrink-0"></div>`; // 揃えるための空スペーサー
 
         // 最初の吹き出しだけ “しっぽ” を付けるクラスを付与
   const bubbleClass = showIcon ? 'bubble bot-first' : 'bubble';
 
   el.innerHTML = `
     ${iconHTML}
-    <div class="bg-gray-100 rounded-2xl px-4 py-3 max-w-xl">${escapeHtml(text)}</div>
+    <div class="bg-gray-100 ${bubbleClass} rounded-2xl px-4 py-3 max-w-xl">${escapeHtml(text)}</div>
   `;
   messagesEl.appendChild(el);
   messagesEl.scrollTop = messagesEl.scrollHeight;
