@@ -68,212 +68,271 @@
     </footer>
   </div>
 
-  <script>
-    const CONFIG = {
-      LINE_URL: 'https://lin.ee/your-line-invite',
-      WEBHOOK_URL: '',
-      PROJECT_NAME: 'funding-bot-v1'
+<script>
+  const CONFIG = {
+    LINE_URL: 'https://lin.ee/your-line-invite',
+    WEBHOOK_URL: '',
+    PROJECT_NAME: 'funding-bot-v1'
+  };
+
+  const $  = (sel, el=document) => el.querySelector(sel);
+  const $$ = (sel, el=document) => Array.from(el.querySelectorAll(sel));
+  function uid(){ return Math.random().toString(36).slice(2,10); }
+  function sleep(ms){ return new Promise(r=>setTimeout(r, ms)); }
+  async function safePost(url, payload){
+    if(!url) return { ok:true, skipped:true };
+    try { const res = await fetch(url, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)}); return { ok:res.ok, status:res.status }; }
+    catch(e){ console.warn('Webhook送信に失敗', e); return { ok:false, error:e }; }
+  }
+  const Validators = {
+    nonEmpty: v => typeof v === 'string' && v.trim().length > 0,
+    oneOf: list => v => list.includes(v),
+  };
+
+  const messagesEl  = $('#messages');
+  const inputAreaEl = $('#inputArea');
+
+  const STORAGE_KEY = CONFIG.PROJECT_NAME + ':answers';
+  function saveAnswers(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(state.answers)); }
+  function loadAnswers(){ try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}'); } catch { return {}; } }
+
+  const state = {
+    sessionId: uid(),
+    step: 0,
+    locked: false,
+    answers: { entityType:null, industry:null, purposes:[], challenge:null, prefecture:null, employees:null, company:'', name:'' }
+  };
+
+  // 連続AIメッセージ数（※半角スペースで！）
+  let botStreak = 0;
+
+  Object.assign(state.answers, loadAnswers());
+
+  const PREFS = ['北海道','青森県','岩手県','宮城県','秋田県','山形県','福島県','茨城県','栃木県','群馬県','埼玉県','千葉県','東京都','神奈川県','新潟県','富山県','石川県','福井県','山梨県','長野県','岐阜県','静岡県','愛知県','三重県','滋賀県','京都府','大阪府','兵庫県','奈良県','和歌山県','鳥取県','島根県','岡山県','広島県','山口県','徳島県','香川県','愛媛県','高知県','福岡県','佐賀県','長崎県','熊本県','大分県','宮崎県','鹿児島県','沖縄県'];
+
+  const QUESTIONS = [
+    { id:'entityType', bot:'こんにちは！数問で最適な資金調達ルートをご提案します。まずは、法人さまですか？個人事業主さまですか？', type:'single', options:['法人','個人事業主'], validate:Validators.oneOf(['法人','個人事業主']) },
+    { id:'industry', bot:'ありがとうございます。差し支えなければ、事業の業種を教えてください。', type:'single', options:['製造業','建設業','IT・Web','飲食・サービス','小売','物流・運輸','医療・福祉','その他'], validate:Validators.oneOf(['製造業','建設業','IT・Web','飲食・サービス','小売','物流・運輸','医療・福祉','その他']) },
+    { id:'purposes', bot:'今回のご相談目的に近いものをお選びください（複数選択可）。', type:'multi', options:['資金調達（融資・補助金）','事業承継やM&Aも視野','経営改善／補助金の活用相談','まだ未定（まずは相談したい)'], validate:(arr)=>Array.isArray(arr)&&arr.length>0 },
+    { id:'challenge', bot:'現在のご状況で一番近いものは？', type:'single', options:['資金繰りが厳しい','拡大のためにレバレッジを効かせたい','新規事業の資金を探している','未定／相談して決めたい'], validate:Validators.oneOf(['資金繰りが厳しい','拡大のためにレバレッジを効かせたい','新規事業の資金を探している','未定／相談して決めたい']) },
+    { id:'prefecture', bot:'会社の所在地（都道府県）を教えてください。', type:'single', options:PREFS, validate:Validators.oneOf(PREFS) },
+    { id:'employees', bot:'従業員（スタッフ）数はどれくらいですか？', type:'single', options:['1〜5名','6〜20名','21〜50名','51名以上'], validate:Validators.oneOf(['1〜5名','6〜20名','21〜50名','51名以上']) },
+    { id:'identity', bot:'最後に、面談準備のため会社名とご担当者名をお願いします（必須）。', type:'identity', validate:()=>true }
+  ];
+
+  function escapeHtml(str){ return String(str).replace(/[&<>"]/g, s => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[s])); }
+
+  function addBotMessage(text){
+    const el = document.createElement('div');
+    el.className = 'flex items-start gap-3';
+
+    const showIcon = botStreak === 0;
+    const iconHTML = showIcon
+      ? `<img src="https://github.com/kuromitsusokujitsu-wq/staticsite/blob/main/aiicon.png?raw=true"
+               alt="サポートAI"
+               class="w-12 h-12 rounded-full object-cover border border-gray-300 mt-0.5">`
+      : `<div class="w-12 flex-shrink-0"></div>`;
+
+    const bubbleClass = showIcon ? 'bubble bot-first' : 'bubble';
+
+    el.innerHTML = `
+      ${iconHTML}
+      <div class="bg-gray-100 ${bubbleClass} rounded-2xl px-4 py-3 max-w-xl">${escapeHtml(text)}</div>
+    `;
+    messagesEl.appendChild(el);
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+
+    botStreak += 1;
+  }
+
+  function addUserMessage(text){
+    const el = document.createElement('div');
+    el.className = 'flex justify-end';
+    el.innerHTML = `<div class="bg-blue-600 text-white rounded-2xl px-4 py-3 max-w-xl">${escapeHtml(text)}</div>`;
+    messagesEl.appendChild(el);
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+    botStreak = 0;
+  }
+
+  function renderInput(step){
+    const q = QUESTIONS[step];
+    if(!q){ return renderHandoff(); }
+
+    addBotMessage(q.bot);
+
+    if(q.type === 'single'){
+      inputAreaEl.innerHTML = `
+        <ul class="option-list">
+          ${q.options.map((opt,i)=>`
+            <li><button class="option-btn" data-opt="${opt}">
+              <span class="dot">${i+1}</span><span>${opt}</span>
+            </button></li>`).join('')}
+        </ul>`;
+      $$('.option-btn', inputAreaEl).forEach(btn => btn.addEventListener('click', () => {
+        const val = btn.getAttribute('data-opt');
+        if(!q.validate(val)) return;
+        addUserMessage(val);
+        state.answers[q.id] = val;
+        saveAnswers();
+
+        // 個人事業主は対象外
+        if(q.id==='entityType' && val==='個人事業主'){
+          endChat('恐れ入りますが、本サービスは法人さま向けの資金調達・M&A支援です。個人事業主さまは対象外のため、チャットを終了いたします。\n\n必要であれば、下のボタンから最初からやり直してください。');
+          return;
+        }
+        next();
+      }));
+    }
+    else if(q.type === 'multi'){
+      inputAreaEl.innerHTML = `
+        <ul class="option-list mb-2">
+          ${q.options.map((opt,i)=>`
+            <li><button class="option-btn" data-opt="${opt}">
+              <span class="dot">${i+1}</span><span>${opt}</span>
+            </button></li>`).join('')}
+        </ul>
+        <div class="option-actions">
+          <button id="btnConfirm" class="px-4 py-2 bg-blue-600 text-white rounded-lg disabled:opacity-50">選択を確定する</button>
+          <button id="btnSkip" class="px-4 py-2 bg-gray-200 rounded-lg">スキップ</button>
+        </div>`;
+      const chosen = new Set(state.answers.purposes || []);
+      $$('.option-btn', inputAreaEl).forEach(btn => {
+        const val = btn.getAttribute('data-opt');
+        if(chosen.has(val)) btn.classList.add('selected');
+        btn.addEventListener('click', () => {
+          if(chosen.has(val)){ chosen.delete(val); btn.classList.remove('selected'); }
+          else { chosen.add(val); btn.classList.add('selected'); }
+        });
+      });
+      $('#btnConfirm').addEventListener('click', () => {
+        const arr = Array.from(chosen);
+        if(!q.validate(arr)) return alert('少なくとも1つ選択してください。');
+        addUserMessage(arr.join('、'));
+        state.answers[q.id] = arr;
+        saveAnswers();
+        next();
+      });
+      $('#btnSkip').addEventListener('click', () => {
+        addUserMessage('（未選択）');
+        state.answers[q.id] = [];
+        saveAnswers();
+        next();
+      });
+    }
+    else if(q.type === 'identity'){
+      inputAreaEl.innerHTML = `
+        <form id="identityForm" class="space-y-3">
+          <div>
+            <label class="block text-sm mb-1">会社名 <span class="text-red-600">（必須）</span></label>
+            <input id="company" type="text" required class="w-full border rounded-lg px-3 py-2" placeholder="例：株式会社サンプル" />
+            <p id="companyErr" class="text-xs text-red-600 mt-1 hidden">会社名を入力してください。</p>
+          </div>
+          <div>
+            <label class="block text-sm mb-1">ご担当者名 <span class="text-red-600">（必須）</span></label>
+            <input id="name" type="text" required class="w-full border rounded-lg px-3 py-2" placeholder="例：山田 太郎" />
+            <p id="nameErr" class="text-xs text-red-600 mt-1 hidden">ご担当者名を入力してください。</p>
+          </div>
+          <div class="flex gap-2 pt-1">
+            <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-lg">送信して進む</button>
+          </div>
+        </form>`;
+      const form = $('#identityForm');
+      const companyEl = $('#company'), nameEl = $('#name');
+      const companyErr = $('#companyErr'), nameErr = $('#nameErr');
+
+      form.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const company = companyEl.value.trim();
+        const name    = nameEl.value.trim();
+        let ok = true;
+        if(!company){ companyEl.classList.add('border-red-500'); companyErr.classList.remove('hidden'); ok = false; }
+        else { companyEl.classList.remove('border-red-500'); companyErr.classList.add('hidden'); }
+        if(!name){ nameEl.classList.add('border-red-500'); nameErr.classList.remove('hidden'); ok = false; }
+        else { nameEl.classList.remove('border-red-500'); nameErr.classList.add('hidden'); }
+        if(!ok) return;
+
+        addUserMessage(`会社名：${company}`);
+        addUserMessage(`担当者名：${name}`);
+        state.answers.company = company;
+        state.answers.name    = name;
+        saveAnswers();
+        next();
+      });
+    }
+  }
+
+  // 対象外終了用
+  function endChat(reason){
+    addBotMessage(reason);
+    inputAreaEl.innerHTML = '';
+    const box = document.createElement('div');
+    box.className = 'p-3';
+    box.innerHTML = `<button id="restart" class="px-4 py-3 rounded-xl border">最初からやり直す</button>`;
+    inputAreaEl.appendChild(box);
+    $('#restart').addEventListener('click', () => {
+      localStorage.removeItem(STORAGE_KEY);
+      location.reload();
+    });
+  }
+
+  function renderHandoff(){
+    inputAreaEl.innerHTML = '';
+    const summary = buildSummary(state.answers);
+    addBotMessage('ありがとうございます。内容から複数のご提案が可能です。担当者が5分ほどヒアリングし、最短ルートをご案内します。');
+    addBotMessage('下のボタンからLINEにご登録ください。すぐに日程調整のご案内をお送りします。');
+    addBotMessage('— 回答要約 —\n' + summary);
+
+    const handoff = document.createElement('div');
+    handoff.className = 'p-3 flex flex-wrap items-center gap-3';
+    handoff.innerHTML = `
+      <a href="${CONFIG.LINE_URL}" target="_blank" rel="noopener" class="px-5 py-3 bg-green-600 text-white rounded-xl hover:bg-green-700">LINEで日程を調整する</a>
+      <button id="copySummary" class="px-4 py-3 rounded-xl border">回答をコピー</button>
+      <button id="restart" class="px-4 py-3 rounded-xl border">最初からやり直す</button>`;
+    inputAreaEl.appendChild(handoff);
+
+    $('#copySummary').addEventListener('click', async () => {
+      try { await navigator.clipboard.writeText(summary); alert('回答要約をコピーしました。'); }
+      catch(e){ alert('コピーに失敗しました。'); }
+    });
+    $('#restart').addEventListener('click', () => {
+      localStorage.removeItem(STORAGE_KEY);
+      location.reload();
+    });
+
+    const payload = {
+      sessionId: state.sessionId,
+      ts: new Date().toISOString(),
+      answers: state.answers,
+      ua: navigator.userAgent,
+      utm: Object.fromEntries(new URLSearchParams(location.search).entries())
     };
+    safePost(CONFIG.WEBHOOK_URL, payload);
+  }
 
-    const $ = (sel, el=document) => el.querySelector(sel);
-    const $$ = (sel, el=document) => Array.from(el.querySelectorAll(sel));
+  function buildSummary(a){
+    return [
+      `区分：${a.entityType || '未回答'}`,
+      `業種：${a.industry || '未回答'}`,
+      `目的：${(a.purposes||[]).join('、') || '未回答'}`,
+      `状況：${a.challenge || '未回答'}`,
+      `所在地：${a.prefecture || '未回答'}`,
+      `従業員数：${a.employees || '未回答'}`,
+      `会社名：${a.company || '—'}`,
+      `担当者名：${a.name || '—'}`
+    ].join('\n');
+  }
 
-    function uid(){ return Math.random().toString(36).slice(2,10); }
-    function sleep(ms){ return new Promise(r=>setTimeout(r, ms)); }
+  async function next(){
+    state.step++;
+    await sleep(200);
+    renderInput(state.step);
+  }
 
-    async function safePost(url, payload){
-      if(!url) return { ok: true, skipped: true };
-      try { const res = await fetch(url, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)}); return { ok: res.ok, status: res.status }; }
-      catch(e){ console.warn('Webhook送信に失敗', e); return { ok: false, error: e }; }
-    }
-
-    const Validators = {
-      nonEmpty: v => typeof v === 'string' && v.trim().length > 0,
-      oneOf: list => v => list.includes(v),
-    };
-
-    const messagesEl = $('#messages');
-    const inputAreaEl = $('#inputArea');
-
-    const STORAGE_KEY = CONFIG.PROJECT_NAME + ':answers';
-    function saveAnswers(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(state.answers)); }
-    function loadAnswers(){ try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}'); } catch { return {}; } }
-
-    const state = {
-      sessionId: uid(), step: 0, locked: false,
-      answers: { entityType:null, industry:null, purposes:[], challenge:null, prefecture:null, employees:null, company:'', name:'' }
-    };
-
-    // ここに追加
-    let botStreak = 0; // 連続AIメッセージ数
-
-    Object.assign(state.answers, loadAnswers());
-
-    const PREFS = ['北海道','青森県','岩手県','宮城県','秋田県','山形県','福島県','茨城県','栃木県','群馬県','埼玉県','千葉県','東京都','神奈川県','新潟県','富山県','石川県','福井県','山梨県','長野県','岐阜県','静岡県','愛知県','三重県','滋賀県','京都府','大阪府','兵庫県','奈良県','和歌山県','鳥取県','島根県','岡山県','広島県','山口県','徳島県','香川県','愛媛県','高知県','福岡県','佐賀県','長崎県','熊本県','大分県','宮崎県','鹿児島県','沖縄県'];
-
-    const QUESTIONS = [
-      { id:'entityType', bot:'こんにちは！数問で最適な資金調達ルートをご提案します。まずは、法人さまですか？個人事業主さまですか？', type:'single', options:['法人','個人事業主'], validate:Validators.oneOf(['法人','個人事業主']) },
-      { id:'industry', bot:'ありがとうございます。差し支えなければ、事業の業種を教えてください。', type:'single', options:['製造業','建設業','IT・Web','飲食・サービス','小売','物流・運輸','医療・福祉','その他'], validate:Validators.oneOf(['製造業','建設業','IT・Web','飲食・サービス','小売','物流・運輸','医療・福祉','その他']) },
-      { id:'purposes', bot:'今回のご相談目的に近いものをお選びください（複数選択可）。', type:'multi', options:['資金調達（融資・補助金）','事業承継やM&Aも視野','経営改善／補助金の活用相談','まだ未定（まずは相談したい)'], validate:(arr)=>Array.isArray(arr)&&arr.length>0 },
-      { id:'challenge', bot:'現在のご状況で一番近いものは？', type:'single', options:['資金繰りが厳しい','拡大のためにレバレッジを効かせたい','新規事業の資金を探している','未定／相談して決めたい'], validate:Validators.oneOf(['資金繰りが厳しい','拡大のためにレバレッジを効かせたい','新規事業の資金を探している','未定／相談して決めたい']) },
-      { id:'prefecture', bot:'会社の所在地（都道府県）を教えてください。', type:'single', options:PREFS, validate:Validators.oneOf(PREFS) },
-      { id:'employees', bot:'従業員（スタッフ）数はどれくらいですか？', type:'single', options:['1〜5名','6〜20名','21〜50名','51名以上'], validate:Validators.oneOf(['1〜5名','6〜20名','21〜50名','51名以上']) },
-      { id:'identity', bot:'最後に、面談準備のため会社名とご担当者名をお願いします（任意）。', type:'identity', validate:()=>true }
-    ];
-
-    function addBotMessage(text){
-      const el=document.createElement('div');
-      el.className='flex items-start space-x-3';
-      
-  const showIcon = botStreak === 0;
-  const iconHTML = showIcon
-    ? `<img src="https://github.com/kuromitsusokujitsu-wq/staticsite/blob/main/aiicon.png?raw=true"
-             alt="サポートAI"
-             class="w-12 h-12 rounded-full object-cover border border-gray-300 mt-0.5">`
-    : `<div class="w-12 flex-shrink-0"></div>`; // 揃えるための空スペーサー
-
-        // 最初の吹き出しだけ “しっぽ” を付けるクラスを付与
-  const bubbleClass = showIcon ? 'bubble bot-first' : 'bubble';
-
-  el.innerHTML = `
-    ${iconHTML}
-    <div class="bg-gray-100 ${bubbleClass} rounded-2xl px-4 py-3 max-w-xl">${escapeHtml(text)}</div>
-  `;
-  messagesEl.appendChild(el);
-  messagesEl.scrollTop = messagesEl.scrollHeight;
-
-  botStreak += 1; // 連続AI通数を進める
-}
-
-    function addUserMessage(text){
-      const el=document.createElement('div');
-      el.className='flex justify-end';
-      el.innerHTML=`<div class="bg-blue-600 text-white rounded-2xl px-4 py-3 max-w-xl">${escapeHtml(text)}</div>`;
-      messagesEl.appendChild(el);messagesEl.scrollTop=messagesEl.scrollHeight;
-
-      botStreak = 0; // ユーザー発話のあと、次のAIはまたアイコン表示
-    }
-
-    function escapeHtml(str){ return String(str).replace(/[&<>"]/g,s=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[s])); }
-
-    function renderInput(step){ const q=QUESTIONS[step]; if(!q){return renderHandoff();} addBotMessage(q.bot);
-      if(q.type==='single'){
-        inputAreaEl.innerHTML=`<ul class="option-list">${q.options.map((opt,i)=>`<li><button class="option-btn" data-opt="${opt}"><span class="dot">${i+1}</span><span>${opt}</span></button></li>`).join('')}</ul>`;
-        $$('.option-btn',inputAreaEl).forEach(btn=>btn.addEventListener('click',()=>{const val=btn.getAttribute('data-opt');if(!q.validate(val))return;addUserMessage(val);state.answers[q.id]=val;saveAnswers();
-          // ▼ 個人事業主は対象外 → メッセージ表示して終了
-          if(q.id==='entityType' && val==='個人事業主') { endChat('恐れ入りますが、本サービスは法人さま向けの資金調達・M&A支援です。個人事業主さまは対象外のため、チャットを終了いたします。必要であれば、下のボタンから最初からやり直してください。'); return; }
-          next();}));
-      }
-      else if(q.type==='multi'){
-        inputAreaEl.innerHTML=`<ul class="option-list mb-2">${q.options.map((opt,i)=>`<li><button class="option-btn" data-opt="${opt}"><span class="dot">${i+1}</span><span>${opt}</span></button></li>`).join('')}</ul><div class="option-actions"><button id="btnConfirm" class="px-4 py-2 bg-blue-600 text-white rounded-lg disabled:opacity-50">選択を確定する</button><button id="btnSkip" class="px-4 py-2 bg-gray-200 rounded-lg">スキップ</button></div>`;
-        const chosen=new Set(state.answers.purposes||[]);
-        $$('.option-btn',inputAreaEl).forEach(btn=>{const val=btn.getAttribute('data-opt');if(chosen.has(val))btn.classList.add('selected');btn.addEventListener('click',()=>{if(chosen.has(val)){chosen.delete(val);btn.classList.remove('selected');}else{chosen.add(val);btn.classList.add('selected');}});});
-        $('#btnConfirm').addEventListener('click',()=>{const arr=Array.from(chosen);if(!q.validate(arr))return alert('少なくとも1つ選択してください。');addUserMessage(arr.join('、'));state.answers[q.id]=arr;saveAnswers();next();});
-        $('#btnSkip').addEventListener('click',()=>{addUserMessage('（未選択）');state.answers[q.id]=[];saveAnswers();next();});
-      }
-else if(q.type==='identity'){
-  inputAreaEl.innerHTML = `
-    <form id="identityForm" class="space-y-3">
-      <div>
-        <label class="block text-sm mb-1">会社名 <span class="text-red-600">（必須）</span></label>
-        <input id="company" type="text" required
-               class="w-full border rounded-lg px-3 py-2"
-               placeholder="例：株式会社サンプル" />
-        <p id="companyErr" class="text-xs text-red-600 mt-1 hidden">会社名を入力してください。</p>
-      </div>
-      <div>
-        <label class="block text-sm mb-1">ご担当者名 <span class="text-red-600">（必須）</span></label>
-        <input id="name" type="text" required
-               class="w-full border rounded-lg px-3 py-2"
-               placeholder="例：山田 太郎" />
-        <p id="nameErr" class="text-xs text-red-600 mt-1 hidden">ご担当者名を入力してください。</p>
-      </div>
-      <div class="flex gap-2 pt-1">
-        <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-lg">送信して進む</button>
-      </div>
-    </form>`;
-
-  const form = $('#identityForm');
-  const companyEl = $('#company'); const nameEl = $('#name');
-  const companyErr = $('#companyErr'); const nameErr = $('#nameErr');
-
-  form.addEventListener('submit', (e) => {
-    e.preventDefault();
-    const company = companyEl.value.trim();
-    const name = nameEl.value.trim();
-
-    // 簡易バリデーション
-    let ok = true;
-    if(!company){ companyEl.classList.add('border-red-500'); companyErr.classList.remove('hidden'); ok = false; }
-    else { companyEl.classList.remove('border-red-500'); companyErr.classList.add('hidden'); }
-    if(!name){ nameEl.classList.add('border-red-500'); nameErr.classList.remove('hidden'); ok = false; }
-    else { nameEl.classList.remove('border-red-500'); nameErr.classList.add('hidden'); }
-
-    if(!ok) return;
-
-    addUserMessage(`会社名：${company}`);
-    addUserMessage(`担当者名：${name}`);
-    state.answers.company = company;
-    state.answers.name = name;
-    saveAnswers();
-    next();
-  });
-    }
-
-    // 対象外終了用
-    function endChat(reason){
-      addBotMessage(reason);
-      inputAreaEl.innerHTML = '';
-      const box = document.createElement('div');
-      box.className = 'p-3';
-      box.innerHTML = `<button id="restart" class="px-4 py-3 rounded-xl border">最初からやり直す</button>`;
-      inputAreaEl.appendChild(box);
-      $('#restart').addEventListener('click', () => { localStorage.removeItem(STORAGE_KEY); location.reload(); });
-    }
-
-    function renderHandoff(){
-      inputAreaEl.innerHTML='';
-      const summary=buildSummary(state.answers);
-      addBotMessage('ありがとうございます。内容から複数のご提案が可能です。担当者が5分ほどヒアリングし、最短ルートをご案内します。');
-      addBotMessage('下のボタンからLINEにご登録ください。すぐに日程調整のご案内をお送りします。');
-      addBotMessage('— 回答要約 —\n'+summary);
-      const handoff=document.createElement('div');handoff.className='p-3 flex flex-wrap items-center gap-3';handoff.innerHTML=`<a href="${CONFIG.LINE_URL}" target="_blank" rel="noopener" class="px-5 py-3 bg-green-600 text-white rounded-xl hover:bg-green-700">LINEで日程を調整する</a><button id="copySummary" class="px-4 py-3 rounded-xl border">回答をコピー</button><button id="restart" class="px-4 py-3 rounded-xl border">最初からやり直す</button>`;inputAreaEl.appendChild(handoff);
-      $('#copySummary').addEventListener('click',async()=>{try{await navigator.clipboard.writeText(summary);alert('回答要約をコピーしました。');}catch(e){alert('コピーに失敗しました。');}});
-      $('#restart').addEventListener('click',()=>{localStorage.removeItem(STORAGE_KEY);location.reload();});
-      const payload={sessionId:state.sessionId,ts:new Date().toISOString(),answers:state.answers,ua:navigator.userAgent,utm:Object.fromEntries(new URLSearchParams(location.search).entries())};
-      safePost(CONFIG.WEBHOOK_URL,payload);
-    }
-
-    function buildSummary(a){
-      return [
-        `区分：${a.entityType || '未回答'}`,
-        `業種：${a.industry || '未回答'}`,
-        `目的：${(a.purposes||[]).join('、') || '未回答'}`,
-        `状況：${a.challenge || '未回答'}`,
-        `所在地：${a.prefecture || '未回答'}`,
-        `従業員数：${a.employees || '未回答'}`,
-        `会社名：${a.company || '—'}`,
-        `担当者名：${a.name || '—'}`
-      ].join('\n');
-    }
-
-    async function next(){
-      state.step++;
-      await sleep(200); // 軽い間
-      renderInput(state.step);
-    }
-
-    // 起動
-    (function init(){
-      $('#year').textContent = new Date().getFullYear();
-      // 復元：途中から再開
-      const answeredSteps = Object.entries(state.answers).filter(([k,v]) => {
-        if(k==='company'||k==='name') return false; // identityは最後にまとめて
-        return v && (Array.isArray(v) ? v.length>0 : true);
-      }).length;
-      
-      renderInput(state.step);
-    })();
-  </script>
+  // 起動
+  (function init(){
+    $('#year').textContent = new Date().getFullYear();
+    renderInput(state.step);
+  })();
+</script>
 </body>
 </html>
