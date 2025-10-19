@@ -216,15 +216,42 @@
       return id;
     }
 
-    function addUserMessage(text){
-      const el = document.createElement('div');
-      el.className = 'flex justify-end';
-      el.innerHTML = `
-        <div class="bg-blue-600 text-white rounded-2xl px-4 py-3 max-w-xl">${escapeHtml(text)}</div>
-      `;
-      messagesEl.appendChild(el);
-      messagesEl.scrollTop = messagesEl.scrollHeight;
-    }
+let lastSender = null; // ← 関数外に追加（グローバル）
+
+function addBotMessage(text){
+  const el = document.createElement('div');
+  el.className = 'flex items-start space-x-3';
+
+  // 直前もAIならアイコン非表示
+  const showIcon = lastSender !== 'bot';
+  const iconHTML = showIcon
+    ? `<img src="https://github.com/kuromitsusokujitsu-wq/staticsite/blob/main/aiicon.png?raw=true"
+             alt="サポートAI"
+             class="w-12 h-12 rounded-full object-cover border border-gray-300 mt-0.5">`
+    : `<div class="w-12"></div>`;
+
+  el.innerHTML = `
+    ${iconHTML}
+    <div class="bg-gray-100 rounded-2xl px-4 py-3 max-w-xl">${escapeHtml(text)}</div>
+  `;
+  messagesEl.appendChild(el);
+  messagesEl.scrollTop = messagesEl.scrollHeight;
+
+  lastSender = 'bot';
+}
+
+function addUserMessage(text){
+  const el = document.createElement('div');
+  el.className = 'flex justify-end';
+  el.innerHTML = `
+    <div class="bg-blue-600 text-white rounded-2xl px-4 py-3 max-w-xl">${escapeHtml(text)}</div>
+  `;
+  messagesEl.appendChild(el);
+  messagesEl.scrollTop = messagesEl.scrollHeight;
+
+  lastSender = 'user';
+}
+
 
     function escapeHtml(str){
       return String(str).replace(/[&<>"]/g, s => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[s]));
