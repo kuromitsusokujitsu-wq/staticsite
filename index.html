@@ -14,11 +14,26 @@
     /* フォーカス可視化 */
     :focus-visible { outline: 2px solid #2563EB; outline-offset: 2px; }
     /* ボタンチップ */
-    .option-list { @apply space-y-2; }
-    .option-btn { @apply w-full text-left px-4 py-3 rounded-xl border border-gray-200 bg-white shadow-sm hover:shadow focus:ring-2 focus:ring-blue-500 flex items-center gap-3; }
-    .option-btn .dot { @apply w-6 h-6 rounded-full flex items-center justify-center border border-gray-300 text-xs; }
-    .option-btn.selected { @apply border-blue-600 ring-1 ring-blue-600 bg-blue-50; }
-    .option-actions { @apply flex gap-2 pt-2; }
+    .option-list { margin-top: 4px; }
+    .option-list li { list-style: none; }
+    .option-btn {
+      width: 100%; text-align: left; padding: 12px 16px; border-radius: 12px;
+      border: 1px solid #E5E7EB; background: #FFFFFF; box-shadow: 0 1px 1px rgba(0,0,0,0.04);
+      display: flex; align-items: center; gap: 12px; transition: box-shadow .15s, border-color .15s, background .15s;
+    }
+    .option-btn:hover { box-shadow: 0 2px 6px rgba(0,0,0,0.06); }
+    .option-btn:focus-visible { outline: 2px solid #2563EB; outline-offset: 2px; }
+    .option-btn .dot {
+      width: 24px; height: 24px; border-radius: 9999px; border: 1px solid #D1D5DB;
+      display: inline-flex; align-items: center; justify-content: center; font-size: 12px; color: #6B7280; background: #fff;
+      flex: 0 0 24px;
+    }
+    .option-btn.selected { border-color: #2563EB; background: #EFF6FF; box-shadow: 0 0 0 2px rgba(37,99,235,0.15) inset; }
+    .option-btn.selected .dot { background: #2563EB; color: #fff; border-color: #2563EB; }
+    .option-actions { display: flex; gap: 8px; padding-top: 8px; }
+    .btn-primary { background:#2563EB; color:#fff; padding:10px 16px; border-radius:10px; }
+    .btn-primary:hover { filter: brightness(0.95); }
+    .btn-secondary { background:#E5E7EB; color:#111827; padding:10px 16px; border-radius:10px; }
   </style>
 </head>
 <body class="bg-gray-50 text-gray-900">
