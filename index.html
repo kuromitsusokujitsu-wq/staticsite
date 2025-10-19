@@ -139,6 +139,9 @@
       }
     };
 
+    // 連続AIメッセージ数
+　　　let botStreak = 0;
+
     // 初期化（復元）
     Object.assign(state.answers, loadAnswers());
 
@@ -223,7 +226,7 @@ function addBotMessage(text){
   el.className = 'flex items-start space-x-3';
 
   // 直前もAIならアイコン非表示
-  const showIcon = lastSender !== 'bot';
+  const showIcon = botStreak === 0;
   const iconHTML = showIcon
     ? `<img src="https://github.com/kuromitsusokujitsu-wq/staticsite/blob/main/aiicon.png?raw=true"
              alt="サポートAI"
@@ -237,7 +240,7 @@ function addBotMessage(text){
   messagesEl.appendChild(el);
   messagesEl.scrollTop = messagesEl.scrollHeight;
 
-  lastSender = 'bot';
+  botStreak += 1;
 }
 
 function addUserMessage(text){
@@ -249,7 +252,7 @@ function addUserMessage(text){
   messagesEl.appendChild(el);
   messagesEl.scrollTop = messagesEl.scrollHeight;
 
-  lastSender = 'user';
+  botStreak = 0;
 }
 
 
