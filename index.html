@@ -14,8 +14,11 @@
     /* フォーカス可視化 */
     :focus-visible { outline: 2px solid #2563EB; outline-offset: 2px; }
     /* ボタンチップ */
-    .chip { @apply px-3 py-2 rounded-full border border-gray-300 hover:bg-gray-100 focus:ring-2 focus:ring-blue-500 cursor-pointer; }
-    .chip-selected { @apply bg-blue-600 text-white border-blue-600; }
+    .option-list { @apply space-y-2; }
+    .option-btn { @apply w-full text-left px-4 py-3 rounded-xl border border-gray-200 bg-white shadow-sm hover:shadow focus:ring-2 focus:ring-blue-500 flex items-center gap-3; }
+    .option-btn .dot { @apply w-6 h-6 rounded-full flex items-center justify-center border border-gray-300 text-xs; }
+    .option-btn.selected { @apply border-blue-600 ring-1 ring-blue-600 bg-blue-50; }
+    .option-actions { @apply flex gap-2 pt-2; }
   </style>
 </head>
 <body class="bg-gray-50 text-gray-900">
@@ -59,7 +62,7 @@
     // 設定（運用時に編集）
     // =========================
     const CONFIG = {
-      LINE_URL: 'https://lin.ee/c8sya3q',    // ← LINEの友だち追加URLに差し替え
+      LINE_URL: 'https://lin.ee/your-line-invite',    // ← LINEの友だち追加URLに差し替え
       WEBHOOK_URL: '',                                 // ← 取得データの送信先（任意）。空なら送信スキップ。
       PROJECT_NAME: 'funding-bot-v1'
     };
@@ -219,15 +222,19 @@
 
       // 入力UI
       if(q.type === 'single'){
+        // 縦並びの視認性高いボタン群
         inputAreaEl.innerHTML = `
-          <div class="flex flex-wrap gap-2">
-            ${q.options.map(opt => `<button class="chip" data-opt="${opt}">${opt}</button>`).join('')}
-          </div>`;
-        $$('.chip', inputAreaEl).forEach(btn => btn.addEventListener('click', () => {
+          <ul class="option-list">
+            ${q.options.map((opt, i) => `
+              <li><button class="option-btn" data-opt="${opt}">
+                <span class="dot">${i+1}</span>
+                <span>${opt}</span>
+              </button></li>`).join('')}
+          </ul>`;
+        $$('.option-btn', inputAreaEl).forEach(btn => btn.addEventListener('click', () => {
           const val = btn.getAttribute('data-opt');
           if(!q.validate(val)) return;
           addUserMessage(val);
-          // 保存
           state.answers[q.id] = val;
           saveAnswers();
           next();
@@ -235,20 +242,24 @@
       }
       else if(q.type === 'multi'){
         inputAreaEl.innerHTML = `
-          <div class="flex flex-wrap gap-2 mb-3">
-            ${q.options.map(opt => `<button class="chip" data-opt="${opt}">${opt}</button>`).join('')}
-          </div>
-          <div class="flex gap-2">
+          <ul class="option-list mb-2">
+            ${q.options.map((opt, i) => `
+              <li><button class="option-btn" data-opt="${opt}">
+                <span class="dot">${i+1}</span>
+                <span>${opt}</span>
+              </button></li>`).join('')}
+          </ul>
+          <div class="option-actions">
             <button id="btnConfirm" class="px-4 py-2 bg-blue-600 text-white rounded-lg disabled:opacity-50">選択を確定する</button>
             <button id="btnSkip" class="px-4 py-2 bg-gray-200 rounded-lg">スキップ</button>
           </div>`;
         const chosen = new Set(state.answers.purposes || []);
-        $$('.chip', inputAreaEl).forEach(btn => {
+        $$('.option-btn', inputAreaEl).forEach(btn => {
           const val = btn.getAttribute('data-opt');
-          if(chosen.has(val)) btn.classList.add('chip-selected');
+          if(chosen.has(val)) btn.classList.add('selected');
           btn.addEventListener('click', () => {
-            if(chosen.has(val)) { chosen.delete(val); btn.classList.remove('chip-selected'); }
-            else { chosen.add(val); btn.classList.add('chip-selected'); }
+            if(chosen.has(val)) { chosen.delete(val); btn.classList.remove('selected'); }
+            else { chosen.add(val); btn.classList.add('selected'); }
           });
         });
         $('#btnConfirm').addEventListener('click', () => {
