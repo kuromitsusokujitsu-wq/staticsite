@@ -36,7 +36,7 @@
     <header class="w-full max-w-3xl px-4 mb-4">
       <div class="bg-white rounded-2xl shadow p-5 flex items-center justify-between">
         <div class="flex items-center space-x-3">
-          <img src="https://github.com/kuromitsusokujitsu-wq/staticsite/blob/main/aiicon.png?raw=true" alt="サポートAI" class="w-10 h-10 rounded-full border border-gray-300 object-cover">
+          <img src="https://github.com/kuromitsusokujitsu-wq/staticsite/blob/main/aiicon.png?raw=true" alt="サポートAI" class="w-12 h-12 rounded-full border border-gray-300 object-cover">
           <div>
             <h1 class="text-lg font-semibold">資金調達サポートAI</h1>
             <p class="text-sm text-gray-500">数問の回答で最適ルートをご提案 → LINEで面談調整</p>
@@ -95,6 +95,9 @@
       answers: { entityType:null, industry:null, purposes:[], challenge:null, prefecture:null, employees:null, company:'', name:'' }
     };
 
+    // ここに追加
+　　let botStreak = 0; // 連続AIメッセージ数
+
     Object.assign(state.answers, loadAnswers());
 
     const PREFS = ['北海道','青森県','岩手県','宮城県','秋田県','山形県','福島県','茨城県','栃木県','群馬県','埼玉県','千葉県','東京都','神奈川県','新潟県','富山県','石川県','福井県','山梨県','長野県','岐阜県','静岡県','愛知県','三重県','滋賀県','京都府','大阪府','兵庫県','奈良県','和歌山県','鳥取県','島根県','岡山県','広島県','山口県','徳島県','香川県','愛媛県','高知県','福岡県','佐賀県','長崎県','熊本県','大分県','宮崎県','鹿児島県','沖縄県'];
@@ -112,15 +115,31 @@
     function addBotMessage(text){
       const el=document.createElement('div');
       el.className='flex items-start space-x-3';
-      el.innerHTML=`<img src="https://github.com/kuromitsusokujitsu-wq/staticsite/blob/main/aiicon.png?raw=true" alt="サポートAI" class="w-8 h-8 rounded-full object-cover border border-gray-300 mt-0.5"><div class="bg-gray-100 rounded-2xl px-4 py-3 max-w-xl">${escapeHtml(text)}</div>`;
-      messagesEl.appendChild(el);messagesEl.scrollTop=messagesEl.scrollHeight;
-    }
+      
+  const showIcon = botStreak === 0;
+  const iconHTML = showIcon
+    ? `<img src="https://github.com/kuromitsusokujitsu-wq/staticsite/blob/main/aiicon.png?raw=true"
+             alt="サポートAI"
+             class="w-12 h-12 rounded-full object-cover border border-gray-300 mt-0.5">`
+    : `<div class="w-8"></div>`; // 揃えるための空スペーサー
+
+  el.innerHTML = `
+    ${iconHTML}
+    <div class="bg-gray-100 rounded-2xl px-4 py-3 max-w-xl">${escapeHtml(text)}</div>
+  `;
+  messagesEl.appendChild(el);
+  messagesEl.scrollTop = messagesEl.scrollHeight;
+
+  botStreak += 1; // 連続AI通数を進める
+}
 
     function addUserMessage(text){
       const el=document.createElement('div');
       el.className='flex justify-end';
       el.innerHTML=`<div class="bg-blue-600 text-white rounded-2xl px-4 py-3 max-w-xl">${escapeHtml(text)}</div>`;
       messagesEl.appendChild(el);messagesEl.scrollTop=messagesEl.scrollHeight;
+
+      botStreak = 0; // ユーザー発話のあと、次のAIはまたアイコン表示
     }
 
     function escapeHtml(str){ return String(str).replace(/[&<>"]/g,s=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[s])); }
