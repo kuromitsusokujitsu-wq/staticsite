@@ -130,7 +130,7 @@
     ? `<img src="https://github.com/kuromitsusokujitsu-wq/staticsite/blob/main/aiicon.png?raw=true"
              alt="サポートAI"
              class="w-12 h-12 rounded-full object-cover border border-gray-300 mt-0.5">`
-    : `<div class="w-8"></div>`; // 揃えるための空スペーサー
+    : `<div class="w-12"></div>`; // 揃えるための空スペーサー
 
         // 最初の吹き出しだけ “しっぽ” を付けるクラスを付与
   const bubbleClass = showIcon ? 'bubble bot-first' : 'bubble';
@@ -190,7 +190,6 @@ else if(q.type==='identity'){
       </div>
       <div class="flex gap-2 pt-1">
         <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-lg">送信して進む</button>
-        <button type="button" id="skipIdentity" class="px-4 py-2 bg-gray-200 rounded-lg">（無効）スキップ</button>
       </div>
     </form>`;
 
@@ -219,12 +218,6 @@ else if(q.type==='identity'){
     saveAnswers();
     next();
   });
-
-  // スキップは無効化（ガード）
-  $('#skipIdentity').addEventListener('click', () => {
-    addBotMessage('会社名とご担当者名は必須です。ご入力をお願いします。');
-  });
-　　　}
     }
 
     // 対象外終了用
