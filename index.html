@@ -130,9 +130,7 @@
         inputAreaEl.innerHTML=`<ul class="option-list">${q.options.map((opt,i)=>`<li><button class="option-btn" data-opt="${opt}"><span class="dot">${i+1}</span><span>${opt}</span></button></li>`).join('')}</ul>`;
         $$('.option-btn',inputAreaEl).forEach(btn=>btn.addEventListener('click',()=>{const val=btn.getAttribute('data-opt');if(!q.validate(val))return;addUserMessage(val);state.answers[q.id]=val;saveAnswers();
           // ▼ 個人事業主は対象外 → メッセージ表示して終了
-          if(q.id==='entityType' && val==='個人事業主') { endChat('恐れ入りますが、本サービスは**法人さま向け**の資金調達・M&A支援です。個人事業主さまは対象外のため、チャットを終了いたします。
-
-必要であれば、下のボタンから最初からやり直してください。'); return; }
+          if(q.id==='entityType' && val==='個人事業主') { endChat('恐れ入りますが、本サービスは法人さま向けの資金調達・M&A支援です。個人事業主さまは対象外のため、チャットを終了いたします。必要であれば、下のボタンから最初からやり直してください。'); return; }
           next();}));
       }
       else if(q.type==='multi'){
