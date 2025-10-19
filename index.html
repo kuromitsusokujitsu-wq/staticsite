@@ -29,6 +29,15 @@
     .btn-primary { background:#2563EB; color:#fff; padding:10px 16px; border-radius:10px; }
     .btn-primary:hover { filter: brightness(0.95); }
     .btn-secondary { background:#E5E7EB; color:#111827; padding:10px 16px; border-radius:10px; }
+    /* 吹き出し共通 */
+.bubble { position: relative; border-radius: 16px; }
+/* ボットの最初の吹き出しだけ左上にしっぽ */
+.bubble.bot-first::before{
+  content:""; position:absolute; left:-6px; top:12px;
+  width:12px; height:12px; background:#F3F4F6; /* bg-gray-100 */
+  transform: rotate(45deg); border-left:1px solid #E5E7EB; border-top:1px solid #E5E7EB;
+  border-top-left-radius: 2px;
+}
   </style>
 </head>
 <body class="bg-gray-50 text-gray-900">
@@ -123,6 +132,9 @@
              class="w-12 h-12 rounded-full object-cover border border-gray-300 mt-0.5">`
     : `<div class="w-8"></div>`; // 揃えるための空スペーサー
 
+        // 最初の吹き出しだけ “しっぽ” を付けるクラスを付与
+  const bubbleClass = showIcon ? 'bubble bot-first' : 'bubble';
+
   el.innerHTML = `
     ${iconHTML}
     <div class="bg-gray-100 rounded-2xl px-4 py-3 max-w-xl">${escapeHtml(text)}</div>
@@ -159,12 +171,60 @@
         $('#btnConfirm').addEventListener('click',()=>{const arr=Array.from(chosen);if(!q.validate(arr))return alert('少なくとも1つ選択してください。');addUserMessage(arr.join('、'));state.answers[q.id]=arr;saveAnswers();next();});
         $('#btnSkip').addEventListener('click',()=>{addUserMessage('（未選択）');state.answers[q.id]=[];saveAnswers();next();});
       }
-      else if(q.type==='identity'){
-        inputAreaEl.innerHTML=`<form id="identityForm" class="space-y-2"><div><label class="block text-sm mb-1">会社名（任意）</label><input id="company" type="text" class="w-full border rounded-lg px-3 py-2" placeholder="例：株式会社サンプル" /></div><div><label class="block text-sm mb-1">ご担当者名（任意）</label><input id="name" type="text" class="w-full border rounded-lg px-3 py-2" placeholder="例：山田 太郎" /></div><div class="flex gap-2 pt-1"><button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-lg">送信して進む</button><button type="button" id="skipIdentity" class="px-4 py-2 bg-gray-200 rounded-lg">スキップ</button></div></form>`;
-        const form=$('#identityForm');
-        form.addEventListener('submit',e=>{e.preventDefault();const company=$('#company').value.trim();const name=$('#name').value.trim();if(company) addUserMessage(`会社名：${company}`);if(name) addUserMessage(`担当者名：${name}`);state.answers.company=company;state.answers.name=name;saveAnswers();next();});
-        $('#skipIdentity').addEventListener('click',()=>{addUserMessage('（匿名で進む）');next();});
-      }
+else if(q.type==='identity'){
+  inputAreaEl.innerHTML = `
+    <form id="identityForm" class="space-y-3">
+      <div>
+        <label class="block text-sm mb-1">会社名 <span class="text-red-600">（必須）</span></label>
+        <input id="company" type="text" required
+               class="w-full border rounded-lg px-3 py-2"
+               placeholder="例：株式会社サンプル" />
+        <p id="companyErr" class="text-xs text-red-600 mt-1 hidden">会社名を入力してください。</p>
+      </div>
+      <div>
+        <label class="block text-sm mb-1">ご担当者名 <span class="text-red-600">（必須）</span></label>
+        <input id="name" type="text" required
+               class="w-full border rounded-lg px-3 py-2"
+               placeholder="例：山田 太郎" />
+        <p id="nameErr" class="text-xs text-red-600 mt-1 hidden">ご担当者名を入力してください。</p>
+      </div>
+      <div class="flex gap-2 pt-1">
+        <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-lg">送信して進む</button>
+        <button type="button" id="skipIdentity" class="px-4 py-2 bg-gray-200 rounded-lg">（無効）スキップ</button>
+      </div>
+    </form>`;
+
+  const form = $('#identityForm');
+  const companyEl = $('#company'); const nameEl = $('#name');
+  const companyErr = $('#companyErr'); const nameErr = $('#nameErr');
+
+  form.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const company = companyEl.value.trim();
+    const name = nameEl.value.trim();
+
+    // 簡易バリデーション
+    let ok = true;
+    if(!company){ companyEl.classList.add('border-red-500'); companyErr.classList.remove('hidden'); ok = false; }
+    else { companyEl.classList.remove('border-red-500'); companyErr.classList.add('hidden'); }
+    if(!name){ nameEl.classList.add('border-red-500'); nameErr.classList.remove('hidden'); ok = false; }
+    else { nameEl.classList.remove('border-red-500'); nameErr.classList.add('hidden'); }
+
+    if(!ok) return;
+
+    addUserMessage(`会社名：${company}`);
+    addUserMessage(`担当者名：${name}`);
+    state.answers.company = company;
+    state.answers.name = name;
+    saveAnswers();
+    next();
+  });
+
+  // スキップは無効化（ガード）
+  $('#skipIdentity').addEventListener('click', () => {
+    addBotMessage('会社名とご担当者名は必須です。ご入力をお願いします。');
+  });
+　　　}
     }
 
     // 対象外終了用
